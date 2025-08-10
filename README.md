@@ -1,11 +1,11 @@
-# Kronos Demo
+# Kronos Dashboard
 
 本项目演示 Kronos 金融时间序列概率预测系统的端到端流程：数据获取、模型推理、图表生成与网页展示。
 
 ## 项目结构
 
 ```
-Kronos-demo/
+kronos-dashboard/
 ├── config/
 │   └── config.ini           # 运行配置（不再包含 mock）
 ├── core/
