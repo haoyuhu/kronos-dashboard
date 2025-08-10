@@ -146,9 +146,9 @@ def create_plot(hist_df: pd.DataFrame,
             ax.tick_params(axis='x', rotation=30)
 
         fig.tight_layout()
-        chart_dir = repo_path / 'web' / 'static' / 'charts'
+        chart_dir = repo_path / 'docs' / 'static' / 'chart'
         chart_dir.mkdir(exist_ok=True)
-        chart_path = chart_dir / f'{symbol}_chat.png'
+        chart_path = chart_dir / f'{symbol}.png'
         fig.savefig(chart_path, dpi=120)
         plt.close(fig)
         print(f"Chart saved to: {chart_path}")

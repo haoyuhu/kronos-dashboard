@@ -8,7 +8,7 @@ class WebGenerator:
     def __init__(self, repo_path: Path) -> None:
         self.repo_path = Path(repo_path)
         self.template_dir = self.repo_path / 'templates'
-        self.web_dir = self.repo_path / 'web'
+        self.web_dir = self.repo_path / 'docs'
         self.output_path = self.web_dir / 'index.html'
 
     def update(self, metrics: Dict[str, dict]) -> Path:

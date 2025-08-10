@@ -82,7 +82,7 @@ class KronosForecastingApp:
     def _run_mock_mode(self) -> Dict[str, dict]:
         """Run in mock mode using existing charts (PNG only)."""
         logger.info("Running in mock mode...")
-        charts_dir = self.repo_path / 'web' / 'static' / 'chart'
+        charts_dir = self.repo_path / 'docs' / 'static' / 'chart'
         
         if not charts_dir.exists():
             logger.warning(f"Charts directory not found: {charts_dir}")
@@ -150,7 +150,7 @@ class KronosForecastingApp:
                     metrics[symbol] = {
                         "upside_prob": result.upside_prob,
                         "vol_amp_prob": result.vol_amp_prob,
-                        "chart_path": str(result.chart_path.relative_to(self.repo_path / 'web'))
+                        "chart_path": str(result.chart_path.relative_to(self.repo_path / 'docs'))
                     }
                     logger.info(f"Completed forecast for {symbol}")
                 else:

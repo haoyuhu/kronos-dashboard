@@ -1,6 +1,7 @@
 # Kronos Dashboard
 
 本项目演示 Kronos 金融时间序列概率预测系统的端到端流程：数据获取、模型推理、图表生成与网页展示。
+Dashboard 链接：[Kronos Dashboard](https://haoyuhu.github.io/kronos-dashboard/)
 
 ## 项目结构
 
@@ -23,7 +24,7 @@ kronos-dashboard/
 │   └── module.py
 ├── templates/
 │   └── index.jinja          # 页面模板
-├── web/
+├── docs/
 │   ├── index.html           # 生成的页面
 │   └── static/
 │       ├── chart/           # Mock 模式下预置的 PNG 图表
