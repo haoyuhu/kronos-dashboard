@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kronos Live Forecast</title>
+    <link rel="icon" type="image/png" href="static/img/logo.png">
+    <link rel="stylesheet" href="static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1 class="project-title">Kronos: Live Probabilistic Forecast</h1>
+            <p class="subtitle">A Demo of "Kronos: A Foundation Model for the Language of Financial Markets"</p>
+            <a href="https://github.com/shiyu-coder/Kronos" target="_blank" class="repo-link">View Project on GitHub</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="live-dashboard">
+            <h2>Live Forecast Dashboard</h2>
+            <div class="metadata">
+                <span>Last Updated (UTC): <strong id="update-time">{{ update_time }}</strong></span>
+            </div>
+            <div id="forecast-container"></div>
+        </section>
+
+        <!-- Section 2: Methodology -->
+        <section id="methodology">
+            <h2>Methodology Overview</h2>
+            <p>This demo showcases the forecasting results of <strong>Kronos</strong>, a foundation model pre-trained on the "language" of financial markets. The predictions are generated using the following process:</p>
+            <ul>
+                <li><strong>Model:</strong> The `Kronos-small` (25M parameters) model is used to autoregressively predict future K-line data.</li>
+                <li><strong>Data Context:</strong> The model uses historical data from Binance and AkShare as context for each new prediction.</li>
+                <li><strong>Probabilistic Forecasting:</strong> We employ Monte Carlo sampling (N=30 paths) to generate a distribution of possible future price trajectories, not just a single point forecast.</li>
+                <li><strong>Derived Insights:</strong> The resulting distribution is analyzed to produce the mean forecast (solid line), the uncertainty range (shaded area), and the key probability metrics shown above.</li>
+            </ul>
+        </section>
+
+        <!-- Section 3: About the Project -->
+        <section id="about-project">
+            <h2>About The Kronos Project</h2>
+            <p>Kronos is the first open-source foundation model for financial candlesticks (K-lines), trained on data from over 45 global exchanges. It is designed to serve as a unified model for diverse quantitative finance tasks. </p>
+            <div class="project-links">
+                <a href="https://github.com/shiyu-coder/Kronos" class="btn btn-primary" target="_blank">View on GitHub</a>
+                <a href="https://arxiv.org/abs/2508.02739" class="btn btn-secondary" target="_blank">Read the Paper</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 The Kronos Project. Licensed under the MIT License.</p>
+        </div>
+    </footer>
+    <script>
+        const forecastContainer = document.getElementById('forecast-container');
+
+        const forecastData = {{ forecast_data | tojson | safe }};
+
+        function createForecastCard(symbol, data) {
+            const card = document.createElement('div');
+            card.className = 'forecast-card';
+            card.innerHTML = `
+                <h3>${symbol}</h3>
+                <div class="metrics-container">
+                    <div class="metric-card">
+                        <h4>Upside Probability (Next 24h)</h4>
+                        <p class="metric-value" id="upside-prob-${symbol}">${data.upside_prob}</p>
+                        <div class="metric-desc">The model's confidence that the price in 24 hours will be higher than the last known price.</div>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Volatility Amplification (Next 24h)</h4>
+                        <p class="metric-value" id="vol-amp-prob-${symbol}">${data.vol_amp_prob}</p>
+                        <div class="metric-desc">The probability that predicted volatility over the next 24h will exceed recent historical volatility.</div>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <h4>24-Hour Probabilistic Forecast</h4>
+                    <div class="chart-container">
+                        <img src="${data.chart_path}" alt="${symbol} Price and Volume Forecast Chart" class="chart-img">
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function updateDashboard() {
+            forecastContainer.innerHTML = '';
+            for (const symbol in forecastData) {
+                const card = createForecastCard(symbol, forecastData[symbol]);
+                forecastContainer.appendChild(card);
+            }
+        }
+
+        // Initial load
+        updateDashboard();
+    </script>
+</body>
+</html>
