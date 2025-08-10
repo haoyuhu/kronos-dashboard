@@ -36,7 +36,25 @@ class KronosTokenizer(nn.Module, PyTorchModelHubMixin):
 
     """
 
-    def __init__(self, d_in, d_model, n_heads, ff_dim, n_enc_layers, n_dec_layers, ffn_dropout_p, attn_dropout_p, resid_dropout_p, s1_bits, s2_bits, beta, gamma0, gamma, zeta, group_size):
+    def __init__(
+        self,
+        d_in,
+        d_model,
+        n_heads,
+        ff_dim,
+        n_enc_layers,
+        n_dec_layers,
+        ffn_dropout_p,
+        attn_dropout_p,
+        resid_dropout_p,
+        s1_bits,
+        s2_bits,
+        beta,
+        gamma0,
+        gamma,
+        zeta,
+        group_size,
+    ):
 
         super().__init__()
         self.d_in = d_in
@@ -51,24 +69,52 @@ class KronosTokenizer(nn.Module, PyTorchModelHubMixin):
 
         self.s1_bits = s1_bits
         self.s2_bits = s2_bits
-        self.codebook_dim = s1_bits + s2_bits # Total dimension of the codebook after quantization
+        self.codebook_dim = (
+            s1_bits + s2_bits
+        )  # Total dimension of the codebook after quantization
         self.embed = nn.Linear(self.d_in, self.d_model)
         self.head = nn.Linear(self.d_model, self.d_in)
 
         # Encoder Transformer Blocks
-        self.encoder = nn.ModuleList([
-            TransformerBlock(self.d_model, self.n_heads, self.ff_dim, self.ffn_dropout_p, self.attn_dropout_p, self.resid_dropout_p)
-            for _ in range(self.enc_layers - 1)
-        ])
+        self.encoder = nn.ModuleList(
+            [
+                TransformerBlock(
+                    self.d_model,
+                    self.n_heads,
+                    self.ff_dim,
+                    self.ffn_dropout_p,
+                    self.attn_dropout_p,
+                    self.resid_dropout_p,
+                )
+                for _ in range(self.enc_layers - 1)
+            ]
+        )
         # Decoder Transformer Blocks
-        self.decoder = nn.ModuleList([
-            TransformerBlock(self.d_model, self.n_heads, self.ff_dim, self.ffn_dropout_p, self.attn_dropout_p, self.resid_dropout_p)
-            for _ in range(self.dec_layers - 1)
-        ])
-        self.quant_embed = nn.Linear(in_features=self.d_model, out_features=self.codebook_dim) # Linear layer before quantization
-        self.post_quant_embed_pre = nn.Linear(in_features=self.s1_bits, out_features=self.d_model) # Linear layer after quantization (pre part - s1 bits)
-        self.post_quant_embed = nn.Linear(in_features=self.codebook_dim, out_features=self.d_model) # Linear layer after quantization (full codebook)
-        self.tokenizer = BSQuantizer(self.s1_bits, self.s2_bits, beta, gamma0, gamma, zeta, group_size) # BSQuantizer module
+        self.decoder = nn.ModuleList(
+            [
+                TransformerBlock(
+                    self.d_model,
+                    self.n_heads,
+                    self.ff_dim,
+                    self.ffn_dropout_p,
+                    self.attn_dropout_p,
+                    self.resid_dropout_p,
+                )
+                for _ in range(self.dec_layers - 1)
+            ]
+        )
+        self.quant_embed = nn.Linear(
+            in_features=self.d_model, out_features=self.codebook_dim
+        )  # Linear layer before quantization
+        self.post_quant_embed_pre = nn.Linear(
+            in_features=self.s1_bits, out_features=self.d_model
+        )  # Linear layer after quantization (pre part - s1 bits)
+        self.post_quant_embed = nn.Linear(
+            in_features=self.codebook_dim, out_features=self.d_model
+        )  # Linear layer after quantization (full codebook)
+        self.tokenizer = BSQuantizer(
+            self.s1_bits, self.s2_bits, beta, gamma0, gamma, zeta, group_size
+        )  # BSQuantizer module
 
     def forward(self, x):
         """
@@ -90,11 +136,13 @@ class KronosTokenizer(nn.Module, PyTorchModelHubMixin):
         for layer in self.encoder:
             z = layer(z)
 
-        z = self.quant_embed(z) # (B, T, codebook)
+        z = self.quant_embed(z)  # (B, T, codebook)
 
         bsq_loss, quantized, z_indices = self.tokenizer(z)
 
-        quantized_pre = quantized[:, :, :self.s1_bits] # Extract the first part of quantized representation (s1_bits)
+        quantized_pre = quantized[
+            :, :, : self.s1_bits
+        ]  # Extract the first part of quantized representation (s1_bits)
         z_pre = self.post_quant_embed_pre(quantized_pre)
 
         z = self.post_quant_embed(quantized)
@@ -123,18 +171,22 @@ class KronosTokenizer(nn.Module, PyTorchModelHubMixin):
             torch.Tensor: Bit representation tensor.
         """
         if half:
-            x1 = x[0] # Assuming x is a tuple of indices if half is True
+            x1 = x[0]  # Assuming x is a tuple of indices if half is True
             x2 = x[1]
-            mask = 2 ** torch.arange(self.codebook_dim//2, device=x1.device, dtype=torch.long) # Create a mask for bit extraction
-            x1 = (x1.unsqueeze(-1) & mask) != 0 # Extract bits for the first half
-            x2 = (x2.unsqueeze(-1) & mask) != 0 # Extract bits for the second half
-            x = torch.cat([x1, x2], dim=-1) # Concatenate the bit representations
+            mask = 2 ** torch.arange(
+                self.codebook_dim // 2, device=x1.device, dtype=torch.long
+            )  # Create a mask for bit extraction
+            x1 = (x1.unsqueeze(-1) & mask) != 0  # Extract bits for the first half
+            x2 = (x2.unsqueeze(-1) & mask) != 0  # Extract bits for the second half
+            x = torch.cat([x1, x2], dim=-1)  # Concatenate the bit representations
         else:
-            mask = 2 ** torch.arange(self.codebook_dim, device=x.device, dtype=torch.long) # Create a mask for bit extraction
-            x = (x.unsqueeze(-1) & mask) != 0 # Extract bits
+            mask = 2 ** torch.arange(
+                self.codebook_dim, device=x.device, dtype=torch.long
+            )  # Create a mask for bit extraction
+            x = (x.unsqueeze(-1) & mask) != 0  # Extract bits
 
-        x = x.float() * 2 - 1 # Convert boolean to bipolar (-1, 1)
-        q_scale = 1. / (self.codebook_dim ** 0.5) # Scaling factor
+        x = x.float() * 2 - 1  # Convert boolean to bipolar (-1, 1)
+        q_scale = 1.0 / (self.codebook_dim**0.5)  # Scaling factor
         x = x * q_scale
         return x
 
@@ -194,7 +246,20 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         learn_te (bool): Whether to use learnable temporal embeddings.
     """
 
-    def __init__(self, s1_bits, s2_bits, n_layers, d_model, n_heads, ff_dim, ffn_dropout_p, attn_dropout_p, resid_dropout_p, token_dropout_p, learn_te):
+    def __init__(
+        self,
+        s1_bits,
+        s2_bits,
+        n_layers,
+        d_model,
+        n_heads,
+        ff_dim,
+        ffn_dropout_p,
+        attn_dropout_p,
+        resid_dropout_p,
+        token_dropout_p,
+        learn_te,
+    ):
         super().__init__()
         self.s1_bits = s1_bits
         self.s2_bits = s2_bits
@@ -208,14 +273,23 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         self.resid_dropout_p = resid_dropout_p
         self.token_dropout_p = token_dropout_p
 
-        self.s1_vocab_size = 2 ** self.s1_bits
+        self.s1_vocab_size = 2**self.s1_bits
         self.token_drop = nn.Dropout(self.token_dropout_p)
         self.embedding = HierarchicalEmbedding(self.s1_bits, self.s2_bits, self.d_model)
         self.time_emb = TemporalEmbedding(self.d_model, self.learn_te)
-        self.transformer = nn.ModuleList([
-            TransformerBlock(self.d_model, self.n_heads, self.ff_dim, self.ffn_dropout_p, self.attn_dropout_p, self.resid_dropout_p)
-            for _ in range(self.n_layers)
-        ])
+        self.transformer = nn.ModuleList(
+            [
+                TransformerBlock(
+                    self.d_model,
+                    self.n_heads,
+                    self.ff_dim,
+                    self.ffn_dropout_p,
+                    self.attn_dropout_p,
+                    self.resid_dropout_p,
+                )
+                for _ in range(self.n_layers)
+            ]
+        )
         self.norm = RMSNorm(self.d_model)
         self.dep_layer = DependencyAwareLayer(self.d_model)
         self.head = DualHead(self.s1_bits, self.s2_bits, self.d_model)
@@ -228,14 +302,22 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            nn.init.normal_(module.weight, mean=0, std=self.embedding.d_model ** -0.5)
+            nn.init.normal_(module.weight, mean=0, std=self.embedding.d_model**-0.5)
         elif isinstance(module, nn.LayerNorm):
             nn.init.ones_(module.weight)
             nn.init.zeros_(module.bias)
         elif isinstance(module, RMSNorm):
             nn.init.ones_(module.weight)
 
-    def forward(self, s1_ids, s2_ids, stamp=None, padding_mask=None, use_teacher_forcing=False, s1_targets=None):
+    def forward(
+        self,
+        s1_ids,
+        s2_ids,
+        stamp=None,
+        padding_mask=None,
+        use_teacher_forcing=False,
+        s1_targets=None,
+    ):
         """
         Args:
             s1_ids (torch.Tensor): Input tensor of s1 token IDs. Shape: [batch_size, seq_len]
@@ -267,10 +349,14 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
             sibling_embed = self.embedding.emb_s1(s1_targets)
         else:
             s1_probs = F.softmax(s1_logits.detach(), dim=-1)
-            sample_s1_ids = torch.multinomial(s1_probs.view(-1, self.s1_vocab_size), 1).view(s1_ids.shape)
+            sample_s1_ids = torch.multinomial(
+                s1_probs.view(-1, self.s1_vocab_size), 1
+            ).view(s1_ids.shape)
             sibling_embed = self.embedding.emb_s1(sample_s1_ids)
 
-        x2 = self.dep_layer(x, sibling_embed, key_padding_mask=padding_mask) # Dependency Aware Layer: Condition on s1 embeddings
+        x2 = self.dep_layer(
+            x, sibling_embed, key_padding_mask=padding_mask
+        )  # Dependency Aware Layer: Condition on s1 embeddings
         s2_logits = self.head.cond_forward(x2)
         return s1_logits, s2_logits
 
@@ -328,11 +414,11 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
 
 
 def top_k_top_p_filtering(
-        logits,
-        top_k: int = 0,
-        top_p: float = 1.0,
-        filter_value: float = -float("Inf"),
-        min_tokens_to_keep: int = 1,
+    logits,
+    top_k: int = 0,
+    top_p: float = 1.0,
+    filter_value: float = -float("Inf"),
+    min_tokens_to_keep: int = 1,
 ):
     """Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
     Args:
@@ -364,12 +450,16 @@ def top_k_top_p_filtering(
         sorted_indices_to_remove[..., 0] = 0
 
         # scatter sorted tensors to original indexing
-        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+        indices_to_remove = sorted_indices_to_remove.scatter(
+            1, sorted_indices, sorted_indices_to_remove
+        )
         logits[indices_to_remove] = filter_value
         return logits
 
 
-def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, sample_logits=True):
+def sample_from_logits(
+    logits, temperature=1.0, top_k=None, top_p=None, sample_logits=True
+):
     logits = logits / temperature
     if top_k is not None or top_p is not None:
         if top_k > 0 or top_p < 1.0:
@@ -385,16 +475,45 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, sample_l
     return x
 
 
-def auto_regressive_inference(tokenizer, model, x, x_stamp, y_stamp, max_context, pred_len, clip=5, T=1.0, top_k=0, top_p=0.99, sample_count=5, verbose=False):
+def auto_regressive_inference(
+    tokenizer,
+    model,
+    x,
+    x_stamp,
+    y_stamp,
+    max_context,
+    pred_len,
+    clip=5,
+    T=1.0,
+    top_k=0,
+    top_p=0.99,
+    sample_count=5,
+    verbose=False,
+):
     with torch.no_grad():
         batch_size = x.size(0)
         initial_seq_len = x.size(1)
         x = torch.clip(x, -clip, clip)
 
         device = x.device
-        x = x.unsqueeze(1).repeat(1, sample_count, 1, 1).reshape(-1, x.size(1), x.size(2)).to(device)
-        x_stamp = x_stamp.unsqueeze(1).repeat(1, sample_count, 1, 1).reshape(-1, x_stamp.size(1), x_stamp.size(2)).to(device)
-        y_stamp = y_stamp.unsqueeze(1).repeat(1, sample_count, 1, 1).reshape(-1, y_stamp.size(1), y_stamp.size(2)).to(device)
+        x = (
+            x.unsqueeze(1)
+            .repeat(1, sample_count, 1, 1)
+            .reshape(-1, x.size(1), x.size(2))
+            .to(device)
+        )
+        x_stamp = (
+            x_stamp.unsqueeze(1)
+            .repeat(1, sample_count, 1, 1)
+            .reshape(-1, x_stamp.size(1), x_stamp.size(2))
+            .to(device)
+        )
+        y_stamp = (
+            y_stamp.unsqueeze(1)
+            .repeat(1, sample_count, 1, 1)
+            .reshape(-1, y_stamp.size(1), y_stamp.size(2))
+            .to(device)
+        )
 
         x_token = tokenizer.encode(x, half=True)
 
@@ -404,7 +523,9 @@ def auto_regressive_inference(tokenizer, model, x, x_stamp, y_stamp, max_context
                 return torch.cat([x_stamp, y_stamp[:, :pred_step, :]], dim=1)
             else:
                 start_idx = max_context - pred_step
-                return torch.cat([x_stamp[:, -start_idx:, :], y_stamp[:, :pred_step, :]], dim=1)
+                return torch.cat(
+                    [x_stamp[:, -start_idx:, :], y_stamp[:, :pred_step, :]], dim=1
+                )
 
         if verbose:
             ran = trange
@@ -420,13 +541,19 @@ def auto_regressive_inference(tokenizer, model, x, x_stamp, y_stamp, max_context
 
             current_stamp = get_dynamic_stamp(x_stamp, y_stamp, current_seq_len, i)
 
-            s1_logits, context = model.decode_s1(input_tokens[0], input_tokens[1], current_stamp)
+            s1_logits, context = model.decode_s1(
+                input_tokens[0], input_tokens[1], current_stamp
+            )
             s1_logits = s1_logits[:, -1, :]
-            sample_pre = sample_from_logits(s1_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True)
+            sample_pre = sample_from_logits(
+                s1_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True
+            )
 
             s2_logits = model.decode_s2(context, sample_pre)
             s2_logits = s2_logits[:, -1, :]
-            sample_post = sample_from_logits(s2_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True)
+            sample_post = sample_from_logits(
+                s2_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True
+            )
 
             x_token[0] = torch.cat([x_token[0], sample_pre], dim=1)
             x_token[1] = torch.cat([x_token[1], sample_post], dim=1)
@@ -442,11 +569,11 @@ def auto_regressive_inference(tokenizer, model, x, x_stamp, y_stamp, max_context
 
 def calc_time_stamps(x_timestamp):
     time_df = pd.DataFrame()
-    time_df['minute'] = x_timestamp.dt.minute
-    time_df['hour'] = x_timestamp.dt.hour
-    time_df['weekday'] = x_timestamp.dt.weekday
-    time_df['day'] = x_timestamp.dt.day
-    time_df['month'] = x_timestamp.dt.month
+    time_df["minute"] = x_timestamp.dt.minute
+    time_df["hour"] = x_timestamp.dt.hour
+    time_df["weekday"] = x_timestamp.dt.weekday
+    time_df["day"] = x_timestamp.dt.day
+    time_df["month"] = x_timestamp.dt.month
     return time_df
 
 
@@ -457,27 +584,57 @@ class KronosPredictor:
         self.model = model
         self.max_context = max_context
         self.clip = clip
-        self.price_cols = ['open', 'high', 'low', 'close']
-        self.vol_col = 'volume'
-        self.amt_vol = 'amount'
-        self.time_cols = ['minute', 'hour', 'weekday', 'day', 'month']
+        self.price_cols = ["open", "high", "low", "close"]
+        self.vol_col = "volume"
+        self.amt_vol = "amount"
+        self.time_cols = ["minute", "hour", "weekday", "day", "month"]
         self.device = device
 
         self.tokenizer = self.tokenizer.to(self.device)
         self.model = self.model.to(self.device)
 
-    def generate(self, x, x_stamp, y_stamp, pred_len, T, top_k, top_p, sample_count, verbose):
+    def generate(
+        self, x, x_stamp, y_stamp, pred_len, T, top_k, top_p, sample_count, verbose
+    ):
 
         x_tensor = torch.from_numpy(np.array(x).astype(np.float32)).to(self.device)
-        x_stamp_tensor = torch.from_numpy(np.array(x_stamp).astype(np.float32)).to(self.device)
-        y_stamp_tensor = torch.from_numpy(np.array(y_stamp).astype(np.float32)).to(self.device)
+        x_stamp_tensor = torch.from_numpy(np.array(x_stamp).astype(np.float32)).to(
+            self.device
+        )
+        y_stamp_tensor = torch.from_numpy(np.array(y_stamp).astype(np.float32)).to(
+            self.device
+        )
 
-        preds = auto_regressive_inference(self.tokenizer, self.model, x_tensor, x_stamp_tensor, y_stamp_tensor, self.max_context, pred_len,
-                                          self.clip, T, top_k, top_p, sample_count, verbose)
+        preds = auto_regressive_inference(
+            self.tokenizer,
+            self.model,
+            x_tensor,
+            x_stamp_tensor,
+            y_stamp_tensor,
+            self.max_context,
+            pred_len,
+            self.clip,
+            T,
+            top_k,
+            top_p,
+            sample_count,
+            verbose,
+        )
         preds = preds[:, :, -pred_len:, :]
         return preds
 
-    def predict(self, df, x_timestamp, y_timestamp, pred_len, T=1.0, top_k=0, top_p=0.9, sample_count=1, verbose=True):
+    def predict(
+        self,
+        df,
+        x_timestamp,
+        y_timestamp,
+        pred_len,
+        T=1.0,
+        top_k=0,
+        top_p=0.9,
+        sample_count=1,
+        verbose=True,
+    ):
 
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input must be a pandas DataFrame.")
@@ -493,7 +650,9 @@ class KronosPredictor:
             df[self.amt_vol] = df[self.vol_col] * df[self.price_cols].mean(axis=1)
 
         if df[self.price_cols + [self.vol_col, self.amt_vol]].isnull().values.any():
-            raise ValueError("Input DataFrame contains NaN values in price or volume columns.")
+            raise ValueError(
+                "Input DataFrame contains NaN values in price or volume columns."
+            )
 
         x_time_df = calc_time_stamps(x_timestamp)
         y_time_df = calc_time_stamps(y_timestamp)
@@ -511,7 +670,9 @@ class KronosPredictor:
         x_stamp = x_stamp[np.newaxis, :]
         y_stamp = y_stamp[np.newaxis, :]
 
-        preds = self.generate(x, x_stamp, y_stamp, pred_len, T, top_k, top_p, sample_count, verbose)
+        preds = self.generate(
+            x, x_stamp, y_stamp, pred_len, T, top_k, top_p, sample_count, verbose
+        )
 
         preds = preds.squeeze(0)
         preds = preds * (x_std[np.newaxis, :] + 1e-5) + x_mean[np.newaxis, :]
@@ -519,7 +680,15 @@ class KronosPredictor:
         close_preds = preds[:, :, 3].swapaxes(0, 1)
         volume_preds = preds[:, :, 4].swapaxes(0, 1)
 
-        close_df = pd.DataFrame(close_preds, columns=[f"pred-{i+1}" for i in range(sample_count)], index=y_timestamp)
-        volume_df = pd.DataFrame(volume_preds, columns=[f"pred-{i + 1}" for i in range(sample_count)], index=y_timestamp)
+        close_df = pd.DataFrame(
+            close_preds,
+            columns=[f"pred-{i+1}" for i in range(sample_count)],
+            index=y_timestamp,
+        )
+        volume_df = pd.DataFrame(
+            volume_preds,
+            columns=[f"pred-{i + 1}" for i in range(sample_count)],
+            index=y_timestamp,
+        )
 
         return close_df, volume_df
