@@ -21,7 +21,7 @@
         <section id="live-dashboard">
             <h2>Live Forecast Dashboard</h2>
             <div class="metadata">
-                <span>Last Updated (UTC): <strong id="update-time">2025-08-10 17:38:10</strong></span>
+                <span>Last Updated (UTC): <strong id="update-time">2025-08-11 16:03:25</strong></span>
             </div>
             <div id="forecast-container"></div>
         </section>
@@ -57,7 +57,7 @@
     <script>
         const forecastContainer = document.getElementById('forecast-container');
 
-        const forecastData = {"159985": {"chart_path": "static/chart/159985.png", "upside_prob": "6.7%", "vol_amp_prob": "53.3%"}, "BTCUSDT": {"chart_path": "static/chart/BTCUSDT.png", "upside_prob": "0.0%", "vol_amp_prob": "0.0%"}, "ETHUSDT": {"chart_path": "static/chart/ETHUSDT.png", "upside_prob": "0.0%", "vol_amp_prob": "96.7%"}};
+        const forecastData = {"159985": {"chart_path": "static/chart/159985.png", "upside_prob": "3.3%", "vol_amp_prob": "66.7%"}, "BTCUSDT": {"chart_path": "static/chart/BTCUSDT.png", "upside_prob": "10.0%", "vol_amp_prob": "0.0%"}, "ETHUSDT": {"chart_path": "static/chart/ETHUSDT.png", "upside_prob": "20.0%", "vol_amp_prob": "53.3%"}};
 
         function createForecastCard(symbol, data) {
             const card = document.createElement('div');
